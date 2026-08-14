@@ -1,0 +1,17 @@
+{
+  "name": "guesstowin",
+  "version": "1.0.0",
+  "description": "GuessToWin — A multiplayer online drawing-and-guessing game",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["game", "multiplayer", "drawing", "guessing", "socket.io"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.0",
+    "socket.io": "^4.8.3"
+  }
+}
