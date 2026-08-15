@@ -2,608 +2,374 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
-  >
-
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>GuessToWin</title>
-
-  <link rel="stylesheet" href="style.css">
-
+  <link rel="stylesheet" href="/style.css">
   <script src="/socket.io/socket.io.js"></script>
 </head>
 
 <body>
 
-<!-- =========================================================
-     HOME
-========================================================= -->
+<div id="connectionStatus" class="connection hidden">
+  Connecting...
+</div>
 
-<section id="homePage" class="page active">
-
-  <div class="home-container">
-
+<!-- HOME -->
+<section id="landingPage" class="page active">
+  <div class="home">
     <div class="brand">
-      <h1>GuessToWin</h1>
-      <p>Draw. Guess. Win.</p>
+      <h1>Guess<span>To</span>Win</h1>
+      <p>Draw it. Guess it. Win it.</p>
     </div>
 
     <div class="home-card">
 
       <label>Your name</label>
+      <input id="playerNameInput"
+             maxlength="20"
+             placeholder="Enter your name"
+             autocomplete="off">
 
-      <input
-        id="playerNameInput"
-        type="text"
-        maxlength="20"
-        placeholder="Enter your name"
-        autocomplete="off"
-      >
-
-      <button id="createRoomBtn" class="primary-btn">
+      <button id="createRoomBtn" class="btn primary">
         Create Room
       </button>
 
-      <button id="roomBtn" class="secondary-btn">
-        Room
+      <div class="or">OR</div>
+
+      <button id="showJoinBtn" class="btn secondary">
+        Join Room
       </button>
 
-      <!-- JOIN ROOM PANEL -->
+      <div id="joinBox" class="join-box hidden">
+        <input id="roomCodeInput"
+               maxlength="5"
+               placeholder="ROOM CODE"
+               autocomplete="off">
 
-      <div id="joinPanel" class="join-panel hidden">
-
-        <div class="panel-header">
-          <h2>Join Room</h2>
-
-          <button
-            id="closeJoinBtn"
-            class="close-btn"
-          >
-            ×
-          </button>
-        </div>
-
-        <input
-          id="roomCodeInput"
-          type="text"
-          maxlength="6"
-          placeholder="ROOM CODE"
-          autocomplete="off"
-        >
-
-        <button
-          id="joinRoomBtn"
-          class="primary-btn"
-        >
-          Join Room
+        <button id="joinRoomBtn" class="btn primary">
+          Join
         </button>
-
       </div>
 
-      <p id="homeError" class="error hidden"></p>
-
+      <p id="landingError" class="error hidden"></p>
     </div>
-
   </div>
-
 </section>
 
 
-<!-- =========================================================
-     LOBBY
-========================================================= -->
-
+<!-- LOBBY -->
 <section id="lobbyPage" class="page">
 
-  <div class="lobby-container">
+  <div class="topbar">
+    <div>
+      <small>ROOM</small>
+      <strong id="lobbyRoomCode">-----</strong>
+    </div>
 
-    <div class="lobby-top">
+    <div class="top-actions">
+      <button id="copyCodeBtn" class="small-btn">Copy</button>
+      <button id="leaveLobbyBtn" class="small-btn danger">Leave</button>
+    </div>
+  </div>
 
-      <div>
-        <span class="small-label">ROOM</span>
+  <main class="lobby">
 
-        <div
-          id="lobbyRoomCode"
-          class="room-code"
-        >
-          -----
+    <div class="room-card">
+
+      <div class="room-title">
+        <div>
+          <h2>Game Room</h2>
+          <p>Share the room code with your friends.</p>
         </div>
-      </div>
 
-      <div class="lobby-actions">
-
-        <button
-          id="copyCodeBtn"
-          class="small-btn"
-        >
-          Copy
-        </button>
-
-        <button
-          id="settingsBtn"
-          class="small-btn"
-        >
+        <button id="settingsBtn" class="small-btn">
           Settings
         </button>
-
       </div>
 
-    </div>
+      <div id="settingsPanel" class="settings-panel hidden">
 
-    <p class="lobby-subtitle">
-      Share the room code with your friends.
-    </p>
+        <h3>Room Settings</h3>
 
+        <label>Maximum players</label>
+        <select id="maxPlayersSetting">
+          <option value="2">2 Players</option>
+          <option value="3">3 Players</option>
+          <option value="4">4 Players</option>
+          <option value="5">5 Players</option>
+          <option value="6">6 Players</option>
+          <option value="8">8 Players</option>
+          <option value="10">10 Players</option>
+          <option value="12">12 Players</option>
+        </select>
 
-    <div class="players-card">
+        <label>Rounds</label>
+        <select id="roundsSetting">
+          <option value="1">1 Round</option>
+          <option value="2">2 Rounds</option>
+          <option value="3">3 Rounds</option>
+          <option value="4">4 Rounds</option>
+          <option value="5">5 Rounds</option>
+        </select>
 
-      <div class="card-title">
-        <span>Players</span>
-        <span id="playerCount">0</span>
-      </div>
+        <label>Drawing time</label>
+        <select id="timeSetting">
+          <option value="30">30 Seconds</option>
+          <option value="45">45 Seconds</option>
+          <option value="60">60 Seconds</option>
+          <option value="80">80 Seconds</option>
+          <option value="120">120 Seconds</option>
+        </select>
 
-      <div id="lobbyPlayerList"></div>
-
-    </div>
-
-
-    <button
-      id="startGameBtn"
-      class="primary-btn start-btn"
-    >
-      Start Game
-    </button>
-
-    <p
-      id="lobbyHint"
-      class="hint"
-    >
-      Minimum 2 players required
-    </p>
-
-
-    <!-- =====================================================
-         SETTINGS OVERLAY
-    ====================================================== -->
-
-    <div
-      id="settingsOverlay"
-      class="modal hidden"
-    >
-
-      <div class="modal-card">
-
-        <div class="modal-header">
-
-          <div>
-            <span class="small-label">ROOM</span>
-            <h2>Room Settings</h2>
-          </div>
-
-          <button
-            id="closeSettingsBtn"
-            class="close-btn"
-          >
-            ×
+        <div class="settings-actions">
+          <button id="saveSettingsBtn" class="btn primary">
+            Save Settings
           </button>
 
-        </div>
-
-
-        <div class="setting-item">
-
-          <label>
-            Maximum Players
-          </label>
-
-          <select id="maxPlayersSetting">
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-            <option value="6">6</option>
-            <option value="8">8</option>
-            <option value="10">10</option>
-            <option value="12">12</option>
-          </select>
-
-        </div>
-
-
-        <div class="setting-item">
-
-          <label>
-            Rounds
-          </label>
-
-          <select id="roundsSetting">
-            <option value="1">1 Round</option>
-            <option value="2">2 Rounds</option>
-            <option value="3">3 Rounds</option>
-            <option value="4">4 Rounds</option>
-            <option value="5">5 Rounds</option>
-            <option value="6">6 Rounds</option>
-            <option value="8">8 Rounds</option>
-            <option value="10">10 Rounds</option>
-          </select>
-
-        </div>
-
-
-        <div class="setting-item">
-
-          <label>
-            Drawing Time
-          </label>
-
-          <select id="timerSetting">
-            <option value="30">30 seconds</option>
-            <option value="45">45 seconds</option>
-            <option value="60">60 seconds</option>
-            <option value="80">80 seconds</option>
-            <option value="90">90 seconds</option>
-            <option value="120">120 seconds</option>
-          </select>
-
-        </div>
-
-
-        <button
-          id="saveSettingsBtn"
-          class="primary-btn"
-        >
-          Save Settings
-        </button>
-
-
-        <button
-          id="leaveRoomFromSettings"
-          class="danger-btn"
-        >
-          Leave Room
-        </button>
-
-
-        <p
-          id="settingsMessage"
-          class="settings-message"
-        ></p>
-
-      </div>
-
-    </div>
-
-  </div>
-
-</section>
-
-
-<!-- =========================================================
-     GAME
-========================================================= -->
-
-<section id="gamePage" class="page">
-
-  <div class="game-container">
-
-    <!-- TOP -->
-
-    <header class="game-header">
-
-      <div id="roundDisplay">
-        Round 1 / 3
-      </div>
-
-      <div class="timer">
-
-        <div id="timerText">
-          80
-        </div>
-
-      </div>
-
-      <button
-        id="leaveGameBtn"
-        class="leave-btn"
-      >
-        Leave
-      </button>
-
-    </header>
-
-
-    <!-- GAME BODY -->
-
-    <main class="game-body">
-
-      <!-- PLAYERS -->
-
-      <aside class="players-side">
-
-        <h3>Players</h3>
-
-        <div id="gamePlayerList"></div>
-
-      </aside>
-
-
-      <!-- CANVAS -->
-
-      <section class="drawing-section">
-
-        <div class="word-display">
-
-          <span id="wordHint">
-            _ _ _ _
-          </span>
-
-        </div>
-
-
-        <canvas
-          id="drawCanvas"
-        ></canvas>
-
-
-        <!-- DRAWING TOOLS -->
-
-        <div
-          id="drawingTools"
-          class="drawing-tools hidden"
-        >
-
-          <div class="colors">
-
-            <button
-              class="color-btn active"
-              data-color="#000000"
-              style="background:#000000"
-            ></button>
-
-            <button
-              class="color-btn"
-              data-color="#ffffff"
-              style="background:#ffffff"
-            ></button>
-
-            <button
-              class="color-btn"
-              data-color="#ff0000"
-              style="background:#ff0000"
-            ></button>
-
-            <button
-              class="color-btn"
-              data-color="#ff8800"
-              style="background:#ff8800"
-            ></button>
-
-            <button
-              class="color-btn"
-              data-color="#ffd000"
-              style="background:#ffd000"
-            ></button>
-
-            <button
-              class="color-btn"
-              data-color="#20b95a"
-              style="background:#20b95a"
-            ></button>
-
-            <button
-              class="color-btn"
-              data-color="#00a9d6"
-              style="background:#00a9d6"
-            ></button>
-
-            <button
-              class="color-btn"
-              data-color="#315bea"
-              style="background:#315bea"
-            ></button>
-
-            <button
-              class="color-btn"
-              data-color="#7c4dff"
-              style="background:#7c4dff"
-            ></button>
-
-            <button
-              class="color-btn"
-              data-color="#ff4f91"
-              style="background:#ff4f91"
-            ></button>
-
-          </div>
-
-
-          <div class="tool-buttons">
-
-            <button
-              id="pencilTool"
-              class="tool-btn active"
-            >
-              Pencil
-            </button>
-
-            <button
-              id="eraserTool"
-              class="tool-btn"
-            >
-              Eraser
-            </button>
-
-            <button
-              id="clearBtn"
-              class="tool-btn"
-            >
-              Clear
-            </button>
-
-          </div>
-
-
-          <div class="brush-control">
-
-            <span>Size</span>
-
-            <input
-              id="brushSize"
-              type="range"
-              min="2"
-              max="40"
-              value="5"
-            >
-
-            <span id="brushSizeLabel">
-              5
-            </span>
-
-          </div>
-
-        </div>
-
-      </section>
-
-
-      <!-- CHAT -->
-
-      <aside class="chat-side">
-
-        <h3>Chat</h3>
-
-        <div
-          id="chatMessages"
-          class="chat-messages"
-        ></div>
-
-
-        <div class="chat-input">
-
-          <input
-            id="chatInput"
-            type="text"
-            maxlength="200"
-            placeholder="Type your guess..."
-            autocomplete="off"
-          >
-
-          <button
-            id="chatSendBtn"
-            class="primary-btn"
-          >
-            Send
+          <button id="closeSettingsBtn" class="btn secondary">
+            Close
           </button>
-
         </div>
 
-      </aside>
+        <p id="settingsMessage"></p>
+      </div>
 
-    </main>
+      <div id="playersCard">
 
+        <div class="section-title">
+          <h3>Players</h3>
+          <span id="lobbyPlayerCount">0</span>
+        </div>
 
-    <!-- =====================================================
-         WORD CHOICE
-    ====================================================== -->
+        <ul id="lobbyPlayerList"></ul>
 
-    <div
-      id="wordChoiceOverlay"
-      class="word-choice-overlay hidden"
-    >
+      </div>
 
-      <div class="word-choice-card">
+      <div id="hostControls">
 
-        <h1>Choose word</h1>
+        <button id="startGameBtn" class="btn primary big">
+          Start Game
+        </button>
 
-        <p>
-          Pick one word to draw
+        <p id="startHint">
+          At least 2 players are required.
         </p>
 
-        <div
-          id="wordChoiceButtons"
-          class="word-choice-buttons"
-        ></div>
-
       </div>
+
+      <div id="guestWait" class="wait hidden">
+        Waiting for host to start...
+      </div>
+
+      <p id="lobbyError" class="error hidden"></p>
 
     </div>
 
+  </main>
+</section>
 
-    <!-- RESULT -->
 
-    <div
-      id="resultOverlay"
-      class="modal hidden"
-    >
+<!-- GAME -->
+<section id="gamePage" class="page">
 
-      <div class="modal-card result-card">
+  <header class="game-header">
 
-        <span class="small-label">
-          ROUND COMPLETE
-        </span>
+    <div>
+      <span class="round-label">ROUND</span>
+      <strong id="roundDisplay">1 / 3</strong>
+    </div>
 
-        <h2>
-          The word was
-        </h2>
+    <div id="timer" class="timer">
+      80
+    </div>
 
-        <div
-          id="revealedWord"
-          class="revealed-word"
-        >
+    <div class="game-header-right">
+      <div id="wordHint" class="word-hint">_ _ _</div>
+      <button id="leaveGameBtn" class="small-btn danger">
+        Leave
+      </button>
+    </div>
+
+  </header>
+
+
+  <main class="game-layout">
+
+    <aside class="players-panel">
+      <h3>Players</h3>
+      <ul id="gamePlayerList"></ul>
+    </aside>
+
+
+    <section class="draw-section">
+
+      <div class="canvas-wrap">
+        <canvas id="drawCanvas"></canvas>
+
+        <!-- WORD CHOICES -->
+        <div id="wordChoiceOverlay"
+             class="game-overlay hidden">
+
+          <div class="choice-card">
+
+            <p class="choice-label">
+              YOUR TURN
+            </p>
+
+            <h2>Choose a word</h2>
+            <p>Pick one word and draw it.</p>
+
+            <div id="wordChoiceButtons"
+                 class="word-choices">
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- RESULT -->
+        <div id="turnResultOverlay"
+             class="game-overlay hidden">
+
+          <div class="choice-card">
+            <p>Round finished</p>
+            <h2 id="revealedWord"></h2>
+          </div>
+
         </div>
 
       </div>
 
-    </div>
+
+      <!-- TOOLS -->
+      <div id="drawingTools" class="drawing-tools hidden">
+
+        <div class="colors">
+
+          <button class="color-btn active"
+                  data-color="#111111"
+                  style="background:#111111"></button>
+
+          <button class="color-btn"
+                  data-color="#ffffff"
+                  style="background:#ffffff"></button>
+
+          <button class="color-btn"
+                  data-color="#ff4757"
+                  style="background:#ff4757"></button>
+
+          <button class="color-btn"
+                  data-color="#ff9f43"
+                  style="background:#ff9f43"></button>
+
+          <button class="color-btn"
+                  data-color="#ffd32a"
+                  style="background:#ffd32a"></button>
+
+          <button class="color-btn"
+                  data-color="#2ed573"
+                  style="background:#2ed573"></button>
+
+          <button class="color-btn"
+                  data-color="#1e90ff"
+                  style="background:#1e90ff"></button>
+
+          <button class="color-btn"
+                  data-color="#7d5fff"
+                  style="background:#7d5fff"></button>
+
+          <button class="color-btn"
+                  data-color="#ff6b81"
+                  style="background:#ff6b81"></button>
+
+        </div>
+
+        <div class="tools">
+
+          <button id="pencilTool"
+                  class="tool-btn active">
+            ✎
+          </button>
+
+          <button id="eraserTool"
+                  class="tool-btn">
+            ⌫
+          </button>
+
+          <button id="clearBtn"
+                  class="tool-btn">
+            Clear
+          </button>
+
+          <input id="brushSize"
+                 type="range"
+                 min="2"
+                 max="40"
+                 value="5">
+
+          <span id="brushSizeLabel">5</span>
+
+        </div>
+
+      </div>
+
+    </section>
 
 
-    <!-- GAME OVER -->
+    <aside class="chat-panel">
 
-    <div
-      id="gameOverOverlay"
-      class="modal hidden"
-    >
+      <h3>Chat</h3>
 
-      <div class="modal-card">
+      <div id="chatMessages"
+           class="chat-messages">
+      </div>
 
-        <span class="small-label">
-          GAME COMPLETE
-        </span>
+      <div class="chat-input">
 
-        <h2>
-          Game Over
-        </h2>
+        <input id="chatInput"
+               maxlength="200"
+               placeholder="Type your guess..."
+               autocomplete="off">
 
-        <div
-          id="finalRankings"
-          class="final-rankings"
-        ></div>
-
-        <button
-          id="playAgainBtn"
-          class="primary-btn"
-        >
-          Play Again
-        </button>
-
-        <button
-          id="backLobbyBtn"
-          class="secondary-btn"
-        >
-          Back to Lobby
+        <button id="chatSendBtn"
+                class="btn primary">
+          Send
         </button>
 
       </div>
 
-    </div>
+    </aside>
+
+  </main>
+</section>
+
+
+<!-- GAME OVER -->
+<section id="gameOverPage" class="page">
+
+  <div class="gameover">
+
+    <h1>Game Over</h1>
+
+    <div id="podium"></div>
+
+    <ol id="finalRankings"></ol>
+
+    <button id="playAgainBtn"
+            class="btn primary big">
+      Play Again
+    </button>
+
+    <button id="backToLobbyBtn"
+            class="btn secondary big">
+      Return to Lobby
+    </button>
 
   </div>
 
 </section>
 
 
-<script src="script.js"></script>
-
+<script src="/script.js"></script>
 </body>
 </html>
