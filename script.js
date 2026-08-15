@@ -2,2467 +2,1739 @@
 // GuessToWin CLIENT
 // ============================================================
 
-(() => {
+const socket = io();
 
-"use strict";
-
-
-/* ========================================================= */
-/* SOCKET */
-/* ========================================================= */
-
-const socket = io({
-    reconnection: true,
-    reconnectionAttempts: Infinity,
-    reconnectionDelay: 1000
-});
-
-
-/* ========================================================= */
-/* STATE */
-/* ========================================================= */
-
-let myPlayerId = null;
-let myPlayerName = "";
-let roomCode = null;
-
+let roomCode = '';
+let playerId = '';
 let isHost = false;
 let isDrawer = false;
 
-let currentGameState = "landing";
+let currentSettings = {
+  maxPlayers: 8,
+  rounds: 3,
+  timer: 80
+};
 
-let currentRoundTime = 80;
+let canvas;
+let ctx;
 
 let drawing = false;
-
 let lastX = 0;
 let lastY = 0;
 
-let currentColor = "#000000";
-let currentBrushSize = 5;
-let currentTool = "pencil";
+let currentColor = '#000000';
+let currentTool = 'pencil';
+let brushSize = 5;
 
 
-/* ========================================================= */
-/* HELPERS */
-/* ========================================================= */
+// ============================================================
+// HELPERS
+// ============================================================
 
-const $ = id =>
-    document.getElementById(id);
+function $(id) {
+  return document.getElementById(id);
+}
 
+function showPage(id) {
 
-function showPage(name) {
+  document
+    .querySelectorAll('.page')
+    .forEach(page => {
+      page.classList.remove('active');
+    });
 
-    document
-        .querySelectorAll(".page")
-        .forEach(page => {
-            page.classList.remove("active");
-        });
+  $(id).classList.add('active');
+}
 
-    const page = $(name + "Page");
+function showError(id, message) {
 
-    if (page) {
-        page.classList.add("active");
-    }
+  const el = $(id);
 
-    currentGameState = name;
+  el.textContent = message;
 
-    if (name === "game") {
-        setTimeout(resizeCanvas, 50);
-    }
+  el.classList.remove('hidden');
+}
 
+function hideError(id) {
+  $(id).classList.add('hidden');
 }
 
 
-function showError(element, message) {
+// ============================================================
+// HOME
+// ============================================================
 
-    if (!element) return;
+$('roomBtn').addEventListener('click', () => {
 
-    element.textContent = message;
-    element.classList.remove("hidden");
+  $('joinPanel').classList.remove('hidden');
 
-    setTimeout(() => {
-        element.classList.add("hidden");
-    }, 5000);
+  $('roomCodeInput').focus();
+});
 
-}
 
+$('closeJoinBtn').addEventListener('click', () => {
 
-function escapeHtml(text) {
-
-    const div =
-        document.createElement("div");
-
-    div.textContent = text;
-
-    return div.innerHTML;
-
-}
-
-
-/* ========================================================= */
-/* DOM */
-/* ========================================================= */
-
-const playerNameInput =
-    $("playerNameInput");
-
-const roomCodeInput =
-    $("roomCodeInput");
-
-const createRoomBtn =
-    $("createRoomBtn");
-
-const joinRoomBtn =
-    $("joinRoomBtn");
-
-const landingError =
-    $("landingError");
-
-
-const lobbyRoomCode =
-    $("lobbyRoomCode");
-
-const copyCodeBtn =
-    $("copyCodeBtn");
-
-const lobbyPlayerList =
-    $("lobbyPlayerList");
-
-const lobbyPlayerCount =
-    $("lobbyPlayerCount");
-
-const hostControls =
-    $("hostControls");
-
-const waitMessage =
-    $("waitMessage");
-
-const startGameBtn =
-    $("startGameBtn");
-
-const settingsBtn =
-    $("settingsBtn");
-
-const roomSettings =
-    $("roomSettings");
-
-const saveSettingsBtn =
-    $("saveSettingsBtn");
-
-const maxPlayersSelect =
-    $("maxPlayersSelect");
-
-const roundsSelect =
-    $("roundsSelect");
-
-const roundTimeSelect =
-    $("roundTimeSelect");
-
-const settingsError =
-    $("settingsError");
-
-const lobbyError =
-    $("lobbyError");
-
-const leaveLobbyBtn =
-    $("leaveLobbyBtn");
-
-
-const roundDisplay =
-    $("roundDisplay");
-
-const timerText =
-    $("timerText");
-
-const wordHint =
-    $("wordHint");
-
-const leaveGameBtn =
-    $("leaveGameBtn");
-
-const wordChoiceOverlay =
-    $("wordChoiceOverlay");
-
-const wordChoiceButtons =
-    $("wordChoiceButtons");
-
-const turnResultOverlay =
-    $("turnResultOverlay");
-
-const revealedWord =
-    $("revealedWord");
-
-const gamePlayerList =
-    $("gamePlayerList");
-
-const chatMessages =
-    $("chatMessages");
-
-const chatInput =
-    $("chatInput");
-
-const chatSendBtn =
-    $("chatSendBtn");
-
-const drawingTools =
-    $("drawingTools");
-
-const canvas =
-    $("drawCanvas");
-
-const ctx =
-    canvas.getContext("2d");
-
-
-const colorBtns =
-    document.querySelectorAll(
-        ".color-btn"
-    );
-
-const pencilTool =
-    $("pencilTool");
-
-const eraserTool =
-    $("eraserTool");
-
-const clearBtn =
-    $("clearBtn");
-
-const brushSize =
-    $("brushSize");
-
-const brushSizeLabel =
-    $("brushSizeLabel");
-
-
-const podium =
-    $("podium");
-
-const finalRankings =
-    $("finalRankings");
-
-const playAgainBtn =
-    $("playAgainBtn");
-
-const backToLobbyBtn =
-    $("backToLobbyBtn");
-
-const leaveGameOverBtn =
-    $("leaveGameOverBtn");
-
-const gameOverHostNote =
-    $("gameOverHostNote");
-
-
-const connectionStatus =
-    $("connectionStatus");
-
-const connectionText =
-    $("connectionText");
-
-
-/* ========================================================= */
-/* SOCKET CONNECTION */
-/* ========================================================= */
-
-socket.on("connect", () => {
-
-    console.log(
-        "GuessToWin connected:",
-        socket.id
-    );
-
-    connectionStatus.classList.add(
-        "hidden"
-    );
+  $('joinPanel').classList.add('hidden');
 
 });
 
 
-socket.on("connect_error", error => {
+$('createRoomBtn').addEventListener(
+  'click',
+  () => {
 
-    console.error(
-        "Socket connection error:",
-        error
-    );
-
-    connectionStatus.classList.remove(
-        "hidden"
-    );
-
-    connectionText.textContent =
-        "Cannot connect to server.";
-
-});
-
-
-socket.on("disconnect", () => {
-
-    connectionStatus.classList.remove(
-        "hidden"
-    );
-
-    connectionText.textContent =
-        "Disconnected — reconnecting...";
-
-});
-
-
-/* ========================================================= */
-/* CREATE ROOM */
-/* ========================================================= */
-
-createRoomBtn.addEventListener(
-    "click",
-    createRoom
-);
-
-
-function createRoom() {
+    hideError('homeError');
 
     const name =
-        playerNameInput.value.trim();
-
-    landingError.classList.add(
-        "hidden"
-    );
+      $('playerNameInput')
+        .value
+        .trim();
 
     if (!name) {
 
-        showError(
-            landingError,
-            "Please enter your name."
-        );
+      showError(
+        'homeError',
+        'Enter your name first.'
+      );
 
-        playerNameInput.focus();
-
-        return;
+      return;
     }
-
-
-    if (!socket.connected) {
-
-        showError(
-            landingError,
-            "Server is not connected. Start server.js first."
-        );
-
-        return;
-    }
-
-
-    myPlayerName =
-        name.substring(0, 20);
-
-
-    createRoomBtn.disabled =
-        true;
-
-    createRoomBtn.textContent =
-        "Creating...";
-
-
-    console.log(
-        "Sending createRoom:",
-        myPlayerName
-    );
-
 
     socket.emit(
-        "createRoom",
-        {
-            playerName:
-                myPlayerName
-        },
-        response => {
+      'createRoom',
+      {
+        playerName: name
+      },
+      response => {
 
-            console.log(
-                "CREATE RESPONSE:",
-                response
-            );
+        if (!response || !response.success) {
 
+          showError(
+            'homeError',
+            response?.error ||
+            'Could not create room.'
+          );
 
-            createRoomBtn.disabled =
-                false;
-
-            createRoomBtn.textContent =
-                "+ Create Room";
-
-
-            if (!response) {
-
-                showError(
-                    landingError,
-                    "No response from server."
-                );
-
-                return;
-            }
-
-
-            if (!response.success) {
-
-                showError(
-                    landingError,
-                    response.error ||
-                    "Could not create room."
-                );
-
-                return;
-            }
-
-
-            myPlayerId =
-                response.playerId;
-
-            roomCode =
-                response.roomCode;
-
-            isHost =
-                true;
-
-
-            console.log(
-                "ROOM CREATED:",
-                roomCode
-            );
-
-
-            lobbyRoomCode.textContent =
-                roomCode;
-
-
-            showPage("lobby");
-
+          return;
         }
+
+        roomCode =
+          response.roomCode;
+
+        playerId =
+          response.playerId;
+
+        showLobby();
+
+      }
     );
+  }
+);
 
-}
+
+$('joinRoomBtn').addEventListener(
+  'click',
+  joinRoom
+);
 
 
-/* ========================================================= */
-/* JOIN ROOM */
-/* ========================================================= */
+$('roomCodeInput').addEventListener(
+  'keydown',
+  event => {
 
-joinRoomBtn.addEventListener(
-    "click",
-    joinRoom
+    if (event.key === 'Enter') {
+      joinRoom();
+    }
+
+  }
 );
 
 
 function joinRoom() {
 
-    const name =
-        playerNameInput.value.trim();
+  hideError('homeError');
 
-    const code =
-        roomCodeInput.value
-            .trim()
-            .toUpperCase();
+  const name =
+    $('playerNameInput')
+      .value
+      .trim();
 
+  const code =
+    $('roomCodeInput')
+      .value
+      .trim()
+      .toUpperCase();
 
-    if (!name) {
+  if (!name) {
 
-        showError(
-            landingError,
-            "Please enter your name."
-        );
-
-        return;
-    }
-
-
-    if (!code) {
-
-        showError(
-            landingError,
-            "Please enter a room code."
-        );
-
-        return;
-    }
-
-
-    if (!socket.connected) {
-
-        showError(
-            landingError,
-            "Server is not connected."
-        );
-
-        return;
-    }
-
-
-    myPlayerName =
-        name.substring(0, 20);
-
-
-    joinRoomBtn.disabled =
-        true;
-
-    joinRoomBtn.textContent =
-        "Joining...";
-
-
-    socket.emit(
-        "joinRoom",
-        {
-            playerName:
-                myPlayerName,
-
-            roomCode:
-                code
-        },
-        response => {
-
-            joinRoomBtn.disabled =
-                false;
-
-            joinRoomBtn.textContent =
-                "Join Room";
-
-
-            console.log(
-                "JOIN RESPONSE:",
-                response
-            );
-
-
-            if (!response) {
-
-                showError(
-                    landingError,
-                    "No response from server."
-                );
-
-                return;
-            }
-
-
-            if (!response.success) {
-
-                showError(
-                    landingError,
-                    response.error ||
-                    "Could not join room."
-                );
-
-                return;
-            }
-
-
-            myPlayerId =
-                response.playerId;
-
-            roomCode =
-                response.roomCode;
-
-            isHost =
-                false;
-
-
-            lobbyRoomCode.textContent =
-                roomCode;
-
-
-            showPage("lobby");
-
-        }
+    showError(
+      'homeError',
+      'Enter your name first.'
     );
 
+    return;
+  }
+
+  if (!code) {
+
+    showError(
+      'homeError',
+      'Enter a room code.'
+    );
+
+    return;
+  }
+
+  socket.emit(
+    'joinRoom',
+    {
+      playerName: name,
+      roomCode: code
+    },
+    response => {
+
+      if (!response || !response.success) {
+
+        showError(
+          'homeError',
+          response?.error ||
+          'Could not join room.'
+        );
+
+        return;
+      }
+
+      roomCode =
+        response.roomCode;
+
+      playerId =
+        response.playerId;
+
+      showLobby();
+
+    }
+  );
 }
 
 
-/* ========================================================= */
-/* ENTER KEY */
-/* ========================================================= */
+// ============================================================
+// LOBBY
+// ============================================================
 
-playerNameInput.addEventListener(
-    "keydown",
-    event => {
+function showLobby() {
 
-        if (
-            event.key === "Enter"
-        ) {
+  $('lobbyRoomCode')
+    .textContent = roomCode;
 
-            createRoom();
+  showPage('lobbyPage');
+}
 
-        }
+
+$('copyCodeBtn').addEventListener(
+  'click',
+  async () => {
+
+    try {
+
+      await navigator.clipboard.writeText(
+        roomCode
+      );
+
+      $('copyCodeBtn')
+        .textContent = 'Copied!';
+
+      setTimeout(() => {
+
+        $('copyCodeBtn')
+          .textContent = 'Copy';
+
+      }, 1200);
+
+    } catch {
+
+      alert(
+        `Room code: ${roomCode}`
+      );
 
     }
+
+  }
 );
 
 
-roomCodeInput.addEventListener(
-    "keydown",
-    event => {
+// ============================================================
+// SETTINGS
+// ============================================================
 
-        if (
-            event.key === "Enter"
-        ) {
+$('settingsBtn').addEventListener(
+  'click',
+  () => {
 
-            joinRoom();
+    updateSettingsInputs();
 
-        }
+    $('settingsOverlay')
+      .classList.remove('hidden');
 
-    }
+  }
 );
 
 
-/* ========================================================= */
-/* ROOM STATE */
-/* ========================================================= */
+$('closeSettingsBtn').addEventListener(
+  'click',
+  () => {
 
-socket.on(
-    "roomState",
-    data => {
+    $('settingsOverlay')
+      .classList.add('hidden');
 
-        console.log(
-            "ROOM STATE:",
-            data
-        );
-
-
-        if (!data) return;
-
-
-        roomCode =
-            data.code;
-
-        isHost =
-            data.hostId ===
-            myPlayerId;
-
-
-        lobbyRoomCode.textContent =
-            data.code;
-
-
-        const players =
-            data.players || [];
-
-
-        lobbyPlayerCount.textContent =
-            `(${players.length})`;
-
-
-        lobbyPlayerList.innerHTML =
-            "";
-
-
-        players.forEach(
-            (player, index) => {
-
-                const li =
-                    document.createElement(
-                        "li"
-                    );
-
-                li.innerHTML = `
-                    <span>
-                        ${index + 1}.
-                        ${escapeHtml(player.name)}
-                    </span>
-
-                    ${
-                        player.isHost
-                        ? `<span class="host-badge">HOST</span>`
-                        : ""
-                    }
-                `;
-
-                lobbyPlayerList.appendChild(
-                    li
-                );
-
-            }
-        );
-
-
-        /* HOST */
-
-        if (
-            data.state === "lobby"
-        ) {
-
-            showPage("lobby");
-
-
-            if (isHost) {
-
-                hostControls.classList.remove(
-                    "hidden"
-                );
-
-                waitMessage.classList.add(
-                    "hidden"
-                );
-
-                settingsBtn.classList.remove(
-                    "hidden"
-                );
-
-            } else {
-
-                hostControls.classList.remove(
-                    "hidden"
-                );
-
-                startGameBtn.classList.add(
-                    "hidden"
-                );
-
-                settingsBtn.classList.add(
-                    "hidden"
-                );
-
-                waitMessage.classList.remove(
-                    "hidden"
-                );
-
-            }
-
-
-            if (
-                data.settings
-            ) {
-
-                maxPlayersSelect.value =
-                    data.settings.maxPlayers;
-
-                roundsSelect.value =
-                    data.settings.rounds;
-
-                roundTimeSelect.value =
-                    data.settings.roundTime;
-
-            }
-
-        }
-
-
-        /* GAME */
-
-        if (
-            data.state === "choosing" ||
-            data.state === "playing" ||
-            data.state === "roundResult"
-        ) {
-
-            if (
-                currentGameState !==
-                "game"
-            ) {
-
-                showPage("game");
-
-            }
-
-
-            if (
-                data.totalRounds
-            ) {
-
-                roundDisplay.textContent =
-                    `Round ${data.roundNumber} / ${data.totalRounds}`;
-
-            }
-
-
-            updateGamePlayers(
-                players,
-                data.drawerId
-            );
-
-        }
-
-    }
+  }
 );
 
 
-/* ========================================================= */
-/* SETTINGS */
-/* ========================================================= */
+$('saveSettingsBtn').addEventListener(
+  'click',
+  () => {
 
-settingsBtn.addEventListener(
-    "click",
-    () => {
+    const maxPlayers =
+      Number(
+        $('maxPlayersSetting').value
+      );
 
-        roomSettings.classList.toggle(
-            "hidden"
-        );
+    const rounds =
+      Number(
+        $('roundsSetting').value
+      );
 
-    }
-);
+    const timer =
+      Number(
+        $('timerSetting').value
+      );
 
+    socket.emit(
+      'updateSettings',
+      {
+        maxPlayers,
+        rounds,
+        timer
+      },
+      response => {
 
-saveSettingsBtn.addEventListener(
-    "click",
-    () => {
+        if (
+          !response ||
+          !response.success
+        ) {
 
-        const settings = {
+          $('settingsMessage')
+            .textContent =
+              response?.error ||
+              'Could not save settings.';
 
-            maxPlayers:
-                Number(
-                    maxPlayersSelect.value
-                ),
+          return;
+        }
 
-            rounds:
-                Number(
-                    roundsSelect.value
-                ),
-
-            roundTime:
-                Number(
-                    roundTimeSelect.value
-                )
-
+        currentSettings = {
+          maxPlayers,
+          rounds,
+          timer
         };
 
+        $('settingsMessage')
+          .textContent =
+            'Settings saved.';
 
-        socket.emit(
-            "setRoomSettings",
-            settings,
-            response => {
+        setTimeout(() => {
 
-                console.log(
-                    "SETTINGS RESPONSE:",
-                    response
-                );
+          $('settingsOverlay')
+            .classList.add('hidden');
 
+          $('settingsMessage')
+            .textContent = '';
 
-                if (
-                    !response ||
-                    !response.success
-                ) {
+        }, 500);
 
-                    showError(
-                        settingsError,
-                        response?.error ||
-                        "Could not save settings."
-                    );
+      }
+    );
 
-                    return;
-                }
-
-
-                roomSettings.classList.add(
-                    "hidden"
-                );
-
-            }
-        );
-
-    }
+  }
 );
 
 
-/* ========================================================= */
-/* START GAME */
-/* ========================================================= */
+function updateSettingsInputs() {
 
-startGameBtn.addEventListener(
-    "click",
-    () => {
+  $('maxPlayersSetting').value =
+    currentSettings.maxPlayers;
 
-        startGameBtn.disabled =
-            true;
+  $('roundsSetting').value =
+    currentSettings.rounds;
 
-        socket.emit(
-            "startGame",
-            {},
-            response => {
-
-                startGameBtn.disabled =
-                    false;
+  $('timerSetting').value =
+    currentSettings.timer;
+}
 
 
-                if (
-                    !response ||
-                    !response.success
-                ) {
+// ============================================================
+// START GAME
+// ============================================================
 
-                    showError(
-                        lobbyError,
-                        response?.error ||
-                        "Could not start game."
-                    );
-
-                }
-
-            }
-        );
-
-    }
-);
-
-
-/* ========================================================= */
-/* COPY ROOM */
-/* ========================================================= */
-
-copyCodeBtn.addEventListener(
-    "click",
-    async () => {
-
-        if (!roomCode) return;
-
-
-        try {
-
-            await navigator.clipboard.writeText(
-                roomCode
-            );
-
-            copyCodeBtn.textContent =
-                "Copied!";
-
-        } catch {
-
-            const temp =
-                document.createElement(
-                    "textarea"
-                );
-
-            temp.value =
-                roomCode;
-
-            document.body.appendChild(
-                temp
-            );
-
-            temp.select();
-
-            document.execCommand(
-                "copy"
-            );
-
-            temp.remove();
-
-            copyCodeBtn.textContent =
-                "Copied!";
-
-        }
-
-
-        setTimeout(
-            () => {
-
-                copyCodeBtn.textContent =
-                    "Copy";
-
-            },
-            1500
-        );
-
-    }
-);
-
-
-/* ========================================================= */
-/* LEAVE ROOM */
-/* ========================================================= */
-
-function leaveRoom() {
+$('startGameBtn').addEventListener(
+  'click',
+  () => {
 
     socket.emit(
-        "leaveRoom"
+      'startGame',
+      {},
+      response => {
+
+        if (
+          response &&
+          !response.success
+        ) {
+
+          $('lobbyHint')
+            .textContent =
+              response.error;
+
+        }
+
+      }
     );
 
-}
-
-
-leaveLobbyBtn.addEventListener(
-    "click",
-    leaveRoom
+  }
 );
 
 
-leaveGameBtn.addEventListener(
-    "click",
-    leaveRoom
-);
+// ============================================================
+// LEAVE ROOM
+// ============================================================
 
-
-leaveGameOverBtn.addEventListener(
-    "click",
-    leaveRoom
-);
-
-
-socket.on(
-    "leftRoom",
+$('leaveRoomFromSettings')
+  .addEventListener(
+    'click',
     () => {
 
-        myPlayerId = null;
+      socket.emit(
+        'leaveRoom'
+      );
 
-        roomCode = null;
+      roomCode = '';
+      playerId = '';
 
-        isHost = false;
+      $('settingsOverlay')
+        .classList.add('hidden');
 
-        isDrawer = false;
-
-        currentGameState =
-            "landing";
-
-
-        wordChoiceOverlay.classList.add(
-            "hidden"
-        );
-
-        turnResultOverlay.classList.add(
-            "hidden"
-        );
-
-
-        playerNameInput.value =
-            myPlayerName;
-
-
-        roomCodeInput.value =
-            "";
-
-
-        showPage(
-            "landing"
-        );
+      showPage('homePage');
 
     }
-);
+  );
 
 
-/* ========================================================= */
-/* NEW TURN */
-/* ========================================================= */
+$('leaveGameBtn').addEventListener(
+  'click',
+  () => {
 
-socket.on(
-    "newTurn",
-    data => {
+    const okay =
+      confirm(
+        'Leave this game?'
+      );
 
-        console.log(
-            "NEW TURN:",
-            data
-        );
-
-
-        showPage("game");
-
-
-        isDrawer =
-            data.drawerId ===
-            myPlayerId;
-
-
-        roundDisplay.textContent =
-            `Round ${data.round} / ${data.totalRounds}`;
-
-
-        wordHint.textContent =
-            "";
-
-
-        wordHint.style.color =
-            "";
-
-
-        turnResultOverlay.classList.add(
-            "hidden"
-        );
-
-
-        wordChoiceOverlay.classList.add(
-            "hidden"
-        );
-
-
-        clearLocalCanvas();
-
-
-        if (isDrawer) {
-
-            drawingTools.classList.remove(
-                "hidden"
-            );
-
-            chatInput.placeholder =
-                "You are drawing...";
-
-        } else {
-
-            drawingTools.classList.add(
-                "hidden"
-            );
-
-            chatInput.placeholder =
-                "Type your guess...";
-
-        }
-
-
-        resizeCanvas();
-
+    if (!okay) {
+      return;
     }
-);
-
-
-/* ========================================================= */
-/* 3 WORD CHOICES */
-/* ========================================================= */
-
-socket.on(
-    "wordChoices",
-    data => {
-
-        console.log(
-            "WORD CHOICES:",
-            data
-        );
-
-
-        if (
-            !data ||
-            !Array.isArray(
-                data.words
-            )
-        ) {
-
-            return;
-
-        }
-
-
-        wordChoiceButtons.innerHTML =
-            "";
-
-
-        data.words
-            .slice(0, 3)
-            .forEach(
-                word => {
-
-                    const button =
-                        document.createElement(
-                            "button"
-                        );
-
-                    button.className =
-                        "word-choice-btn";
-
-                    button.textContent =
-                        word;
-
-
-                    button.addEventListener(
-                        "click",
-                        () => {
-
-                            socket.emit(
-                                "chooseWord",
-                                {
-                                    word:
-                                        word
-                                }
-                            );
-
-
-                            wordChoiceOverlay.classList.add(
-                                "hidden"
-                            );
-
-                        }
-                    );
-
-
-                    wordChoiceButtons.appendChild(
-                        button
-                    );
-
-                }
-            );
-
-
-        wordChoiceOverlay.classList.remove(
-            "hidden"
-        );
-
-    }
-);
-
-
-/* ========================================================= */
-/* ROUND START */
-/* ========================================================= */
-
-socket.on(
-    "roundStart",
-    data => {
-
-        wordChoiceOverlay.classList.add(
-            "hidden"
-        );
-
-
-        if (data.isDrawer) {
-
-            isDrawer =
-                true;
-
-            drawingTools.classList.remove(
-                "hidden"
-            );
-
-            wordHint.textContent =
-                data.word;
-
-            wordHint.style.color =
-                "#6bcb77";
-
-        } else {
-
-            isDrawer =
-                false;
-
-            drawingTools.classList.add(
-                "hidden"
-            );
-
-            wordHint.textContent =
-                data.hint;
-
-            wordHint.style.color =
-                "";
-
-        }
-
-
-        resizeCanvas();
-
-    }
-);
-
-
-/* ========================================================= */
-/* HINT */
-/* ========================================================= */
-
-socket.on(
-    "hintUpdate",
-    data => {
-
-        if (!isDrawer) {
-
-            wordHint.textContent =
-                data.hint;
-
-        }
-
-    }
-);
-
-
-/* ========================================================= */
-/* TIMER */
-/* ========================================================= */
-
-socket.on(
-    "timer",
-    data => {
-
-        const time =
-            Number(
-                data.timeRemaining
-            );
-
-
-        timerText.textContent =
-            time;
-
-
-        if (
-            time <= 10
-        ) {
-
-            timerText.style.color =
-                "#ff5252";
-
-        } else if (
-            time <= 20
-        ) {
-
-            timerText.style.color =
-                "#ffd93d";
-
-        } else {
-
-            timerText.style.color =
-                "#ffffff";
-
-        }
-
-    }
-);
-
-
-/* ========================================================= */
-/* ROUND RESULT */
-/* ========================================================= */
-
-socket.on(
-    "turnResult",
-    data => {
-
-        isDrawer =
-            false;
-
-
-        drawingTools.classList.add(
-            "hidden"
-        );
-
-
-        revealedWord.textContent =
-            data.word;
-
-
-        wordHint.textContent =
-            data.word;
-
-
-        turnResultOverlay.classList.remove(
-            "hidden"
-        );
-
-    }
-);
-
-
-/* ========================================================= */
-/* GAME OVER */
-/* ========================================================= */
-
-socket.on(
-    "gameOver",
-    data => {
-
-        showPage(
-            "gameOver"
-        );
-
-
-        renderGameOver(
-            data.players || []
-        );
-
-    }
-);
-
-
-/* ========================================================= */
-/* GAME PLAYERS */
-/* ========================================================= */
-
-function updateGamePlayers(
-    players,
-    drawerId
-) {
-
-    gamePlayerList.innerHTML =
-        "";
-
-
-    const sorted =
-        [...players]
-            .sort(
-                (a, b) =>
-                    b.score - a.score
-            );
-
-
-    sorted.forEach(
-        player => {
-
-            const li =
-                document.createElement(
-                    "li"
-                );
-
-
-            if (
-                player.id ===
-                drawerId
-            ) {
-
-                li.classList.add(
-                    "drawing"
-                );
-
-            }
-
-
-            li.innerHTML = `
-
-                <span>
-                    ${escapeHtml(
-                        player.name
-                    )}
-                </span>
-
-                ${
-                    player.id === drawerId
-                    ? "<span>✏️</span>"
-                    : ""
-                }
-
-                <span class="gp-score">
-                    ${player.score}
-                </span>
-
-            `;
-
-
-            gamePlayerList.appendChild(
-                li
-            );
-
-        }
-    );
-
-}
-
-
-/* ========================================================= */
-/* CHAT */
-/* ========================================================= */
-
-function sendChat() {
-
-    const message =
-        chatInput.value.trim();
-
-
-    if (!message) return;
-
 
     socket.emit(
-        "chatMessage",
-        {
-            message
-        }
+      'leaveRoom'
     );
 
+    roomCode = '';
+    playerId = '';
 
-    chatInput.value =
-        "";
+    showPage('homePage');
+
+  }
+);
+
+
+// ============================================================
+// ROOM STATE
+// ============================================================
+
+socket.on(
+  'roomState',
+  data => {
+
+    if (!data) {
+      return;
+    }
+
+    roomCode =
+      data.code || roomCode;
+
+    isHost =
+      data.hostId === socket.id;
+
+    $('lobbyRoomCode')
+      .textContent = roomCode;
+
+    currentSettings =
+      data.settings ||
+      currentSettings;
+
+    updateLobbyPlayers(
+      data.players || []
+    );
+
+    updateGamePlayers(
+      data.players || []
+    );
+
+    if (data.state === 'lobby') {
+
+      if (
+        !$('lobbyPage')
+          .classList
+          .contains('active')
+      ) {
+
+        showLobby();
+
+      }
+
+      $('startGameBtn')
+        .classList.toggle(
+          'hidden',
+          !isHost
+        );
+
+      $('settingsBtn')
+        .classList.toggle(
+          'hidden',
+          !isHost
+        );
+
+      if (isHost) {
+
+        $('lobbyHint')
+          .textContent =
+            `Up to ${currentSettings.maxPlayers} players • ${currentSettings.rounds} rounds • ${currentSettings.timer}s`;
+
+      } else {
+
+        $('lobbyHint')
+          .textContent =
+            'Waiting for the host to start the game...';
+
+      }
+    }
+
+  }
+);
+
+
+// ============================================================
+// LOBBY PLAYERS
+// ============================================================
+
+function updateLobbyPlayers(players) {
+
+  $('playerCount')
+    .textContent =
+      players.length;
+
+  $('lobbyPlayerList')
+    .innerHTML = '';
+
+  players.forEach(player => {
+
+    const row =
+      document.createElement('div');
+
+    row.className =
+      'player-row';
+
+    const left =
+      document.createElement('span');
+
+    left.textContent =
+      player.name;
+
+    const right =
+      document.createElement('span');
+
+    if (player.isHost) {
+
+      right.textContent =
+        'HOST';
+
+      right.className =
+        'host-tag';
+
+    }
+
+    row.appendChild(left);
+    row.appendChild(right);
+
+    $('lobbyPlayerList')
+      .appendChild(row);
+
+  });
+}
+
+
+// ============================================================
+// GAME START
+// ============================================================
+
+socket.on(
+  'gameStarted',
+  data => {
+
+    currentSettings =
+      data.settings ||
+      currentSettings;
+
+    showPage('gamePage');
+
+    setupCanvas();
+
+  }
+);
+
+
+// ============================================================
+// NEW TURN
+// ============================================================
+
+socket.on(
+  'newTurn',
+  data => {
+
+    if (!data) {
+      return;
+    }
+
+    isDrawer =
+      data.drawerId === socket.id;
+
+    $('roundDisplay')
+      .textContent =
+        `Round ${data.round} / ${data.totalRounds}`;
+
+    clearCanvasLocal();
+
+    $('wordHint')
+      .textContent =
+        '';
+
+    $('drawingTools')
+      .classList.toggle(
+        'hidden',
+        !isDrawer
+      );
+
+  }
+);
+
+
+// ============================================================
+// WORD CHOICES
+// ============================================================
+
+socket.on(
+  'wordChoices',
+  data => {
+
+    if (
+      !data ||
+      !Array.isArray(data.words)
+    ) {
+      return;
+    }
+
+    if (!isDrawer) {
+      return;
+    }
+
+    showWordChoices(
+      data.words
+    );
+
+  }
+);
+
+
+function showWordChoices(words) {
+
+  const container =
+    $('wordChoiceButtons');
+
+  container.innerHTML = '';
+
+  words.forEach(word => {
+
+    const button =
+      document.createElement('button');
+
+    button.className =
+      'word-choice-btn';
+
+    button.textContent =
+      word;
+
+    button.addEventListener(
+      'click',
+      () => {
+
+        socket.emit(
+          'chooseWord',
+          {
+            word
+          }
+        );
+
+        hideWordChoices();
+
+      }
+    );
+
+    container.appendChild(
+      button
+    );
+
+  });
+
+  $('wordChoiceOverlay')
+    .classList.remove('hidden');
+}
+
+
+function hideWordChoices() {
+
+  $('wordChoiceOverlay')
+    .classList.add('hidden');
 
 }
 
 
-chatSendBtn.addEventListener(
-    "click",
-    sendChat
-);
-
-
-chatInput.addEventListener(
-    "keydown",
-    event => {
-
-        if (
-            event.key === "Enter"
-        ) {
-
-            event.preventDefault();
-
-            sendChat();
-
-        }
-
-    }
-);
-
+// ============================================================
+// ROUND START
+// ============================================================
 
 socket.on(
-    "chatMessage",
-    data => {
+  'roundStart',
+  data => {
 
-        const div =
-            document.createElement(
-                "div"
-            );
+    if (!data) {
+      return;
+    }
 
+    isDrawer =
+      !!data.isDrawer;
 
-        div.className =
-            `chat-msg ${data.type || ""}`;
+    $('drawingTools')
+      .classList.toggle(
+        'hidden',
+        !isDrawer
+      );
 
+    if (data.hint) {
 
-        if (
-            data.type === "chat" &&
-            data.sender
-        ) {
-
-            div.innerHTML =
-                `<span class="msg-sender">
-                    ${escapeHtml(data.sender)}:
-                </span>
-                ${escapeHtml(data.text)}`;
-
-        } else {
-
-            div.textContent =
-                data.text || "";
-
-        }
-
-
-        chatMessages.appendChild(
-            div
-        );
-
-
-        chatMessages.scrollTop =
-            chatMessages.scrollHeight;
+      $('wordHint')
+        .textContent =
+          data.hint;
 
     }
+
+    if (isDrawer && data.word) {
+
+      $('wordHint')
+        .textContent =
+          data.word;
+
+    }
+
+    hideWordChoices();
+
+  }
 );
 
 
-/* ========================================================= */
-/* CANVAS SIZE */
-/* ========================================================= */
+// ============================================================
+// HINT UPDATE
+// ============================================================
+
+socket.on(
+  'hintUpdate',
+  data => {
+
+    if (
+      data &&
+      data.hint
+    ) {
+
+      $('wordHint')
+        .textContent =
+          data.hint;
+
+    }
+
+  }
+);
+
+
+// ============================================================
+// TIMER
+// ============================================================
+
+socket.on(
+  'timer',
+  data => {
+
+    if (!data) {
+      return;
+    }
+
+    $('timerText')
+      .textContent =
+        Math.max(
+          0,
+          data.timeRemaining
+        );
+
+  }
+);
+
+
+// ============================================================
+// CANVAS
+// ============================================================
+
+function setupCanvas() {
+
+  canvas =
+    $('drawCanvas');
+
+  ctx =
+    canvas.getContext(
+      '2d'
+    );
+
+  resizeCanvas();
+
+}
+
 
 function resizeCanvas() {
 
-    if (!canvas) return;
+  if (!canvas) {
+    return;
+  }
 
+  const rect =
+    canvas.getBoundingClientRect();
 
-    const container =
-        canvas.parentElement;
+  const oldImage =
+    canvas.width &&
+    canvas.height
+      ? canvas.toDataURL()
+      : null;
 
+  const dpr =
+    window.devicePixelRatio || 1;
 
-    if (!container) return;
-
-
-    const rect =
-        container.getBoundingClientRect();
-
-
-    if (
-        rect.width <= 0 ||
-        rect.height <= 0
-    ) {
-
-        return;
-
-    }
-
-
-    const oldWidth =
-        canvas.width;
-
-    const oldHeight =
-        canvas.height;
-
-
-    if (
-        Math.abs(
-            oldWidth -
-            rect.width
-        ) < 2 &&
-        Math.abs(
-            oldHeight -
-            rect.height
-        ) < 2
-    ) {
-
-        return;
-
-    }
-
-
-    let image = null;
-
-
-    if (
-        oldWidth > 0 &&
-        oldHeight > 0
-    ) {
-
-        try {
-
-            image =
-                ctx.getImageData(
-                    0,
-                    0,
-                    oldWidth,
-                    oldHeight
-                );
-
-        } catch {}
-
-    }
-
-
-    canvas.width =
-        Math.floor(
-            rect.width
-        );
-
-    canvas.height =
-        Math.floor(
-            rect.height
-        );
-
-
-    ctx.lineCap =
-        "round";
-
-    ctx.lineJoin =
-        "round";
-
-
-    if (image) {
-
-        try {
-
-            ctx.putImageData(
-                image,
-                0,
-                0
-            );
-
-        } catch {}
-
-    }
-
-}
-
-
-/* ========================================================= */
-/* CANVAS CLEAR */
-/* ========================================================= */
-
-function clearLocalCanvas() {
-
-    if (
-        !canvas.width ||
-        !canvas.height
-    ) {
-
-        resizeCanvas();
-
-    }
-
-
-    ctx.save();
-
-    ctx.globalCompositeOperation =
-        "source-over";
-
-    ctx.fillStyle =
-        "#ffffff";
-
-    ctx.fillRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
+  canvas.width =
+    Math.round(
+      rect.width * dpr
     );
 
-    ctx.restore();
+  canvas.height =
+    Math.round(
+      rect.height * dpr
+    );
 
-}
+  ctx.setTransform(
+    dpr,
+    0,
+    0,
+    dpr,
+    0,
+    0
+  );
 
+  ctx.lineCap =
+    'round';
 
-/* ========================================================= */
-/* COORDINATES */
-/* ========================================================= */
+  ctx.lineJoin =
+    'round';
 
-function getCoordinates(event) {
+  ctx.fillStyle =
+    '#ffffff';
 
-    const rect =
-        canvas.getBoundingClientRect();
+  ctx.fillRect(
+    0,
+    0,
+    rect.width,
+    rect.height
+  );
 
+  if (oldImage) {
 
-    let clientX;
-    let clientY;
+    const image =
+      new Image();
 
+    image.onload = () => {
 
-    if (
-        event.touches &&
-        event.touches.length
-    ) {
-
-        clientX =
-            event.touches[0].clientX;
-
-        clientY =
-            event.touches[0].clientY;
-
-    } else {
-
-        clientX =
-            event.clientX;
-
-        clientY =
-            event.clientY;
-
-    }
-
-
-    return {
-
-        x:
-            (clientX -
-            rect.left) /
-            rect.width,
-
-        y:
-            (clientY -
-            rect.top) /
-            rect.height
+      ctx.drawImage(
+        image,
+        0,
+        0,
+        rect.width,
+        rect.height
+      );
 
     };
 
+    image.src =
+      oldImage;
+
+  }
+
 }
 
 
-/* ========================================================= */
-/* DRAW LINE */
-/* ========================================================= */
+window.addEventListener(
+  'resize',
+  () => {
 
-function drawLine(
-    x1,
-    y1,
-    x2,
-    y2,
-    color,
-    size,
-    eraser
-) {
+    if (
+      $('gamePage')
+        .classList
+        .contains('active')
+    ) {
 
-    const px1 =
-        x1 * canvas.width;
-
-    const py1 =
-        y1 * canvas.height;
-
-    const px2 =
-        x2 * canvas.width;
-
-    const py2 =
-        y2 * canvas.height;
-
-
-    ctx.save();
-
-
-    if (eraser) {
-
-        ctx.globalCompositeOperation =
-            "destination-out";
-
-        ctx.strokeStyle =
-            "rgba(0,0,0,1)";
-
-    } else {
-
-        ctx.globalCompositeOperation =
-            "source-over";
-
-        ctx.strokeStyle =
-            color;
+      resizeCanvas();
 
     }
 
-
-    ctx.lineWidth =
-        size;
-
-    ctx.lineCap =
-        "round";
-
-    ctx.lineJoin =
-        "round";
+  }
+);
 
 
-    ctx.beginPath();
+// ============================================================
+// DRAWING EVENTS
+// ============================================================
 
-    ctx.moveTo(
-        px1,
-        py1
-    );
+function getCanvasPosition(event) {
 
-    ctx.lineTo(
-        px2,
-        py2
-    );
+  const rect =
+    canvas.getBoundingClientRect();
 
-    ctx.stroke();
+  let clientX;
+  let clientY;
 
+  if (
+    event.touches &&
+    event.touches.length
+  ) {
 
-    ctx.restore();
+    clientX =
+      event.touches[0].clientX;
+
+    clientY =
+      event.touches[0].clientY;
+
+  } else {
+
+    clientX =
+      event.clientX;
+
+    clientY =
+      event.clientY;
+
+  }
+
+  return {
+    x:
+      clientX - rect.left,
+
+    y:
+      clientY - rect.top
+  };
 
 }
 
-
-/* ========================================================= */
-/* START DRAW */
-/* ========================================================= */
 
 function startDrawing(event) {
 
-    if (!isDrawer) return;
+  if (!isDrawer) {
+    return;
+  }
 
+  event.preventDefault();
 
-    event.preventDefault();
+  drawing = true;
 
-
-    drawing =
-        true;
-
-
-    const point =
-        getCoordinates(
-            event
-        );
-
-
-    lastX =
-        point.x;
-
-    lastY =
-        point.y;
-
-
-    drawLine(
-        point.x,
-        point.y,
-        point.x,
-        point.y,
-        currentColor,
-        currentBrushSize,
-        currentTool === "eraser"
+  const pos =
+    getCanvasPosition(
+      event
     );
 
+  lastX =
+    pos.x;
 
-    socket.emit(
-        "draw",
-        {
+  lastY =
+    pos.y;
 
-            type:
-                "start",
-
-            x:
-                point.x,
-
-            y:
-                point.y,
-
-            color:
-                currentColor,
-
-            size:
-                currentBrushSize,
-
-            eraser:
-                currentTool === "eraser"
-
-        }
-    );
+  drawPoint(
+    pos.x,
+    pos.y
+  );
 
 }
 
 
-/* ========================================================= */
-/* MOVE DRAW */
-/* ========================================================= */
+function drawMove(event) {
 
-function moveDrawing(event) {
+  if (
+    !drawing ||
+    !isDrawer
+  ) {
+    return;
+  }
+
+  event.preventDefault();
+
+  const pos =
+    getCanvasPosition(
+      event
+    );
+
+  drawLine(
+    lastX,
+    lastY,
+    pos.x,
+    pos.y
+  );
+
+  socket.emit(
+    'draw',
+    {
+      type: 'line',
+
+      x1: lastX,
+      y1: lastY,
+
+      x2: pos.x,
+      y2: pos.y,
+
+      color:
+        currentTool === 'eraser'
+          ? '#ffffff'
+          : currentColor,
+
+      size:
+        brushSize
+    }
+  );
+
+  lastX =
+    pos.x;
+
+  lastY =
+    pos.y;
+
+}
+
+
+function stopDrawing() {
+
+  drawing = false;
+
+}
+
+
+function drawPoint(
+  x,
+  y
+) {
+
+  ctx.beginPath();
+
+  ctx.fillStyle =
+    currentTool === 'eraser'
+      ? '#ffffff'
+      : currentColor;
+
+  ctx.arc(
+    x,
+    y,
+    brushSize / 2,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+}
+
+
+function drawLine(
+  x1,
+  y1,
+  x2,
+  y2
+) {
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    x1,
+    y1
+  );
+
+  ctx.lineTo(
+    x2,
+    y2
+  );
+
+  ctx.strokeStyle =
+    currentTool === 'eraser'
+      ? '#ffffff'
+      : currentColor;
+
+  ctx.lineWidth =
+    brushSize;
+
+  ctx.lineCap =
+    'round';
+
+  ctx.lineJoin =
+    'round';
+
+  ctx.stroke();
+
+}
+
+
+canvas =
+  $('drawCanvas');
+
+canvas.addEventListener(
+  'mousedown',
+  startDrawing
+);
+
+canvas.addEventListener(
+  'mousemove',
+  drawMove
+);
+
+canvas.addEventListener(
+  'mouseup',
+  stopDrawing
+);
+
+canvas.addEventListener(
+  'mouseleave',
+  stopDrawing
+);
+
+canvas.addEventListener(
+  'touchstart',
+  startDrawing,
+  { passive: false }
+);
+
+canvas.addEventListener(
+  'touchmove',
+  drawMove,
+  { passive: false }
+);
+
+canvas.addEventListener(
+  'touchend',
+  stopDrawing
+);
+
+
+// ============================================================
+// RECEIVE DRAWING
+// ============================================================
+
+socket.on(
+  'draw',
+  data => {
+
+    if (!data) {
+      return;
+    }
 
     if (
-        !isDrawer ||
-        !drawing
+      data.type === 'line'
     ) {
 
-        return;
+      ctx.beginPath();
+
+      ctx.moveTo(
+        data.x1,
+        data.y1
+      );
+
+      ctx.lineTo(
+        data.x2,
+        data.y2
+      );
+
+      ctx.strokeStyle =
+        data.color;
+
+      ctx.lineWidth =
+        data.size;
+
+      ctx.lineCap =
+        'round';
+
+      ctx.lineJoin =
+        'round';
+
+      ctx.stroke();
 
     }
 
-
-    event.preventDefault();
-
-
-    const point =
-        getCoordinates(
-            event
-        );
+  }
+);
 
 
-    drawLine(
-        lastX,
-        lastY,
-        point.x,
-        point.y,
-        currentColor,
-        currentBrushSize,
-        currentTool === "eraser"
-    );
+// ============================================================
+// CLEAR
+// ============================================================
 
+function clearCanvasLocal() {
 
-    socket.emit(
-        "draw",
-        {
+  if (!canvas || !ctx) {
+    return;
+  }
 
-            type:
-                "move",
+  const rect =
+    canvas.getBoundingClientRect();
 
-            x1:
-                lastX,
+  ctx.clearRect(
+    0,
+    0,
+    rect.width,
+    rect.height
+  );
 
-            y1:
-                lastY,
+  ctx.fillStyle =
+    '#ffffff';
 
-            x2:
-                point.x,
-
-            y2:
-                point.y,
-
-            color:
-                currentColor,
-
-            size:
-                currentBrushSize,
-
-            eraser:
-                currentTool === "eraser"
-
-        }
-    );
-
-
-    lastX =
-        point.x;
-
-    lastY =
-        point.y;
+  ctx.fillRect(
+    0,
+    0,
+    rect.width,
+    rect.height
+  );
 
 }
 
 
-/* ========================================================= */
-/* END DRAW */
-/* ========================================================= */
+$('clearBtn').addEventListener(
+  'click',
+  () => {
 
-function endDrawing() {
+    if (!isDrawer) {
+      return;
+    }
 
-    if (!isDrawer) return;
-
-
-    drawing =
-        false;
-
+    clearCanvasLocal();
 
     socket.emit(
-        "draw",
-        {
-            type:
-                "end"
-        }
+      'clearCanvas'
     );
+
+  }
+);
+
+
+socket.on(
+  'clearCanvas',
+  () => {
+
+    clearCanvasLocal();
+
+  }
+);
+
+
+// ============================================================
+// DRAWING TOOLS
+// ============================================================
+
+document
+  .querySelectorAll('.color-btn')
+  .forEach(button => {
+
+    button.addEventListener(
+      'click',
+      () => {
+
+        document
+          .querySelectorAll(
+            '.color-btn'
+          )
+          .forEach(b =>
+            b.classList.remove(
+              'active'
+            )
+          );
+
+        button.classList.add(
+          'active'
+        );
+
+        currentColor =
+          button.dataset.color;
+
+        currentTool =
+          'pencil';
+
+        $('pencilTool')
+          .classList.add(
+            'active'
+          );
+
+        $('eraserTool')
+          .classList.remove(
+            'active'
+          );
+
+      }
+    );
+
+  });
+
+
+$('pencilTool')
+  .addEventListener(
+    'click',
+    () => {
+
+      currentTool =
+        'pencil';
+
+      $('pencilTool')
+        .classList.add(
+          'active'
+        );
+
+      $('eraserTool')
+        .classList.remove(
+          'active'
+        );
+
+    }
+  );
+
+
+$('eraserTool')
+  .addEventListener(
+    'click',
+    () => {
+
+      currentTool =
+        'eraser';
+
+      $('eraserTool')
+        .classList.add(
+          'active'
+        );
+
+      $('pencilTool')
+        .classList.remove(
+          'active'
+        );
+
+    }
+  );
+
+
+$('brushSize')
+  .addEventListener(
+    'input',
+    event => {
+
+      brushSize =
+        Number(
+          event.target.value
+        );
+
+      $('brushSizeLabel')
+        .textContent =
+          brushSize;
+
+    }
+  );
+
+
+// ============================================================
+// CHAT
+// ============================================================
+
+$('chatSendBtn')
+  .addEventListener(
+    'click',
+    sendChat
+  );
+
+
+$('chatInput')
+  .addEventListener(
+    'keydown',
+    event => {
+
+      if (event.key === 'Enter') {
+
+        sendChat();
+
+      }
+
+    }
+  );
+
+
+function sendChat() {
+
+  const input =
+    $('chatInput');
+
+  const message =
+    input.value.trim();
+
+  if (!message) {
+    return;
+  }
+
+  socket.emit(
+    'chatMessage',
+    {
+      message
+    }
+  );
+
+  input.value = '';
 
 }
 
 
-/* ========================================================= */
-/* CANVAS EVENTS */
-/* ========================================================= */
+socket.on(
+  'chatMessage',
+  data => {
 
-canvas.addEventListener(
-    "mousedown",
-    startDrawing
-);
-
-canvas.addEventListener(
-    "mousemove",
-    moveDrawing
-);
-
-canvas.addEventListener(
-    "mouseup",
-    endDrawing
-);
-
-canvas.addEventListener(
-    "mouseleave",
-    endDrawing
-);
-
-
-canvas.addEventListener(
-    "touchstart",
-    startDrawing,
-    {
-        passive: false
+    if (!data) {
+      return;
     }
-);
 
-canvas.addEventListener(
-    "touchmove",
-    moveDrawing,
-    {
-        passive: false
+    const message =
+      document.createElement(
+        'div'
+      );
+
+    message.className =
+      `chat-message ${data.type || ''}`;
+
+    if (data.sender) {
+
+      const sender =
+        document.createElement(
+          'span'
+        );
+
+      sender.className =
+        'sender';
+
+      sender.textContent =
+        `${data.sender}: `;
+
+      message.appendChild(
+        sender
+      );
+
     }
+
+    const text =
+      document.createElement(
+        'span'
+      );
+
+    text.textContent =
+      data.text || '';
+
+    message.appendChild(
+      text
+    );
+
+    $('chatMessages')
+      .appendChild(
+        message
+      );
+
+    $('chatMessages')
+      .scrollTop =
+        $('chatMessages')
+          .scrollHeight;
+
+  }
 );
 
-canvas.addEventListener(
-    "touchend",
-    endDrawing
-);
 
-canvas.addEventListener(
-    "touchcancel",
-    endDrawing
-);
+// ============================================================
+// GAME PLAYERS
+// ============================================================
+
+function updateGamePlayers(players) {
+
+  const container =
+    $('gamePlayerList');
+
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = '';
+
+  players.forEach(player => {
+
+    const row =
+      document.createElement(
+        'div'
+      );
+
+    row.className =
+      'game-player';
+
+    if (player.isDrawing) {
+
+      row.classList.add(
+        'drawing'
+      );
+
+    }
+
+    row.textContent =
+      `${player.name}  ${player.score}`;
+
+    container.appendChild(
+      row
+    );
+
+  });
+
+}
 
 
-/* ========================================================= */
-/* RECEIVE DRAW */
-/* ========================================================= */
+// ============================================================
+// TURN RESULT
+// ============================================================
 
 socket.on(
-    "draw",
-    data => {
+  'turnResult',
+  data => {
 
-        if (
-            data.type ===
-            "start"
-        ) {
-
-            drawLine(
-                data.x,
-                data.y,
-                data.x,
-                data.y,
-                data.color,
-                data.size,
-                data.eraser
-            );
-
-        }
-
-
-        if (
-            data.type ===
-            "move"
-        ) {
-
-            drawLine(
-                data.x1,
-                data.y1,
-                data.x2,
-                data.y2,
-                data.color,
-                data.size,
-                data.eraser
-            );
-
-        }
-
+    if (!data) {
+      return;
     }
+
+    $('revealedWord')
+      .textContent =
+        data.word || '';
+
+    $('resultOverlay')
+      .classList.remove(
+        'hidden'
+      );
+
+    setTimeout(() => {
+
+      $('resultOverlay')
+        .classList.add(
+          'hidden'
+        );
+
+    }, 3500);
+
+  }
 );
 
 
-/* ========================================================= */
-/* DRAW HISTORY */
-/* ========================================================= */
+// ============================================================
+// GAME OVER
+// ============================================================
 
 socket.on(
-    "drawHistory",
-    events => {
+  'gameOver',
+  data => {
 
-        clearLocalCanvas();
+    $('gameOverOverlay')
+      .classList.remove(
+        'hidden'
+      );
 
+    const players =
+      data.players || [];
 
-        if (
-            !Array.isArray(events)
-        ) {
+    const container =
+      $('finalRankings');
 
-            return;
-
-        }
-
-
-        events.forEach(
-            data => {
-
-                if (
-                    data.type ===
-                    "start"
-                ) {
-
-                    drawLine(
-                        data.x,
-                        data.y,
-                        data.x,
-                        data.y,
-                        data.color,
-                        data.size,
-                        data.eraser
-                    );
-
-                }
-
-
-                if (
-                    data.type ===
-                    "move"
-                ) {
-
-                    drawLine(
-                        data.x1,
-                        data.y1,
-                        data.x2,
-                        data.y2,
-                        data.color,
-                        data.size,
-                        data.eraser
-                    );
-
-                }
-
-            }
-        );
-
-    }
-);
-
-
-/* ========================================================= */
-/* CLEAR CANVAS */
-/* ========================================================= */
-
-clearBtn.addEventListener(
-    "click",
-    () => {
-
-        if (!isDrawer) return;
-
-
-        clearLocalCanvas();
-
-
-        socket.emit(
-            "clearCanvas"
-        );
-
-    }
-);
-
-
-socket.on(
-    "clearCanvas",
-    () => {
-
-        clearLocalCanvas();
-
-    }
-);
-
-
-/* ========================================================= */
-/* COLORS */
-/* ========================================================= */
-
-colorBtns.forEach(
-    button => {
-
-        button.addEventListener(
-            "click",
-            () => {
-
-                colorBtns.forEach(
-                    b =>
-                        b.classList.remove(
-                            "active"
-                        )
-                );
-
-
-                button.classList.add(
-                    "active"
-                );
-
-
-                currentColor =
-                    button.dataset.color;
-
-
-                currentTool =
-                    "pencil";
-
-
-                pencilTool.classList.add(
-                    "active"
-                );
-
-                eraserTool.classList.remove(
-                    "active"
-                );
-
-            }
-        );
-
-    }
-);
-
-
-/* ========================================================= */
-/* PENCIL */
-/* ========================================================= */
-
-pencilTool.addEventListener(
-    "click",
-    () => {
-
-        currentTool =
-            "pencil";
-
-        pencilTool.classList.add(
-            "active"
-        );
-
-        eraserTool.classList.remove(
-            "active"
-        );
-
-    }
-);
-
-
-/* ========================================================= */
-/* ERASER */
-/* ========================================================= */
-
-eraserTool.addEventListener(
-    "click",
-    () => {
-
-        currentTool =
-            "eraser";
-
-        eraserTool.classList.add(
-            "active"
-        );
-
-        pencilTool.classList.remove(
-            "active"
-        );
-
-    }
-);
-
-
-/* ========================================================= */
-/* BRUSH SIZE */
-/* ========================================================= */
-
-brushSize.addEventListener(
-    "input",
-    () => {
-
-        currentBrushSize =
-            Number(
-                brushSize.value
-            );
-
-        brushSizeLabel.textContent =
-            currentBrushSize;
-
-    }
-);
-
-
-/* ========================================================= */
-/* GAME OVER */
-/* ========================================================= */
-
-function renderGameOver(players) {
-
-    podium.innerHTML =
-        "";
-
-
-    finalRankings.innerHTML =
-        "";
-
+    container.innerHTML = '';
 
     players.forEach(
-        (player, index) => {
+      (player, index) => {
 
-            const li =
-                document.createElement(
-                    "li"
-                );
+        const row =
+          document.createElement(
+            'div'
+          );
 
+        row.className =
+          'rank-row';
 
-            li.innerHTML = `
-                <strong>
-                    ${escapeHtml(player.name)}
-                </strong>
+        row.innerHTML =
+          `<span>${index + 1}. ${escapeHtml(player.name)}</span>
+           <strong>${player.score}</strong>`;
 
-                <span style="float:right">
-                    ${player.score} pts
-                </span>
-            `;
+        container.appendChild(
+          row
+        );
 
-
-            finalRankings.appendChild(
-                li
-            );
-
-
-            if (index < 3) {
-
-                const div =
-                    document.createElement(
-                        "div"
-                    );
-
-                div.style.margin =
-                    "8px";
-
-                div.innerHTML = `
-                    #${index + 1}
-                    ${escapeHtml(player.name)}
-                    —
-                    ${player.score} pts
-                `;
-
-                podium.appendChild(
-                    div
-                );
-
-            }
-
-        }
+      }
     );
 
-
-    if (isHost) {
-
-        playAgainBtn.classList.remove(
-            "hidden"
-        );
-
-        backToLobbyBtn.classList.remove(
-            "hidden"
-        );
-
-        gameOverHostNote.classList.add(
-            "hidden"
-        );
-
-    } else {
-
-        playAgainBtn.classList.add(
-            "hidden"
-        );
-
-        backToLobbyBtn.classList.add(
-            "hidden"
-        );
-
-        gameOverHostNote.classList.remove(
-            "hidden"
-        );
-
-    }
-
-}
-
-
-playAgainBtn.addEventListener(
-    "click",
-    () => {
-
-        socket.emit(
-            "playAgain"
-        );
-
-    }
+  }
 );
 
 
-backToLobbyBtn.addEventListener(
-    "click",
+// ============================================================
+// PLAY AGAIN
+// ============================================================
+
+$('playAgainBtn')
+  .addEventListener(
+    'click',
     () => {
 
-        socket.emit(
-            "returnToLobby"
+      socket.emit(
+        'playAgain'
+      );
+
+      $('gameOverOverlay')
+        .classList.add(
+          'hidden'
         );
 
     }
-);
+  );
+
+
+$('backLobbyBtn')
+  .addEventListener(
+    'click',
+    () => {
+
+      socket.emit(
+        'returnToLobby'
+      );
+
+      $('gameOverOverlay')
+        .classList.add(
+          'hidden'
+        );
+
+      showLobby();
+
+    }
+  );
 
 
 socket.on(
-    "returnToLobby",
-    () => {
+  'returnToLobby',
+  () => {
 
-        chatMessages.innerHTML =
-            "";
+    $('gameOverOverlay')
+      .classList.add(
+        'hidden'
+      );
 
-        showPage(
-            "lobby"
-        );
+    showLobby();
 
-    }
+  }
 );
 
 
-/* ========================================================= */
-/* RESIZE */
-/* ========================================================= */
+// ============================================================
+// DRAW HISTORY
+// ============================================================
 
-window.addEventListener(
-    "resize",
-    () => {
+socket.on(
+  'drawHistory',
+  history => {
+
+    if (
+      !Array.isArray(history)
+    ) {
+      return;
+    }
+
+    history.forEach(
+      data => {
 
         if (
-            currentGameState ===
-            "game"
+          data.type === 'line'
         ) {
 
-            resizeCanvas();
+          drawLine(
+            data.x1,
+            data.y1,
+            data.x2,
+            data.y2
+          );
 
         }
 
-    }
+      }
+    );
+
+  }
 );
 
 
-/* ========================================================= */
-/* INITIAL */
-/* ========================================================= */
+// ============================================================
+// DISCONNECTED
+// ============================================================
 
-ctx.lineCap =
-    "round";
+socket.on(
+  'disconnect',
+  () => {
 
-ctx.lineJoin =
-    "round";
+    console.log(
+      'Disconnected from server'
+    );
 
-
-setTimeout(
-    () => {
-
-        playerNameInput.focus();
-
-    },
-    100
+  }
 );
 
 
-})();
+// ============================================================
+// HTML ESCAPE
+// ============================================================
+
+function escapeHtml(text) {
+
+  const div =
+    document.createElement(
+      'div'
+    );
+
+  div.textContent =
+    text;
+
+  return div.innerHTML;
+
+}
