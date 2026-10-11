@@ -484,8 +484,7 @@
       $("wordHint").textContent =
         "DRAW: " + data.word;
 
-      $("wordHint").style.color =
-        "#35d07f";
+      $("wordHint").classList.add("is-drawer");
 
       $("drawingTools").classList.remove("hidden");
 
@@ -496,8 +495,7 @@
       $("wordHint").textContent =
         data.hint || "";
 
-      $("wordHint").style.color =
-        "#7c5cff";
+      $("wordHint").classList.remove("is-drawer");
 
       $("drawingTools").classList.add("hidden");
     }
