@@ -106,7 +106,14 @@ const CONFIG = {
   DRAWER_POINTS_PER_GUESS: 75,
 
   DRAW_EVENT_RATE_LIMIT: 200,
-  ROOM_CODE_LENGTH: 5
+  ROOM_CODE_LENGTH: 5,
+
+  // Defaults + allowed values for host-editable room settings
+  DEFAULT_ROUND_TIME: 80,
+  DEFAULT_ROUNDS: 3,
+  ALLOWED_ROUND_TIMES: [30, 45, 60, 80, 120],
+  MIN_ROUNDS: 1,
+  MAX_ROUNDS: 5
 };
 
 // ============================================================
@@ -272,6 +279,12 @@ class Room {
     this.drawEventCount = {};
 
     this.totalTurns = 0;
+
+    this.settings = {
+      maxPlayers: CONFIG.MAX_PLAYERS,
+      rounds: CONFIG.DEFAULT_ROUNDS,
+      roundTime: CONFIG.DEFAULT_ROUND_TIME
+    };
 
     this.addPlayer(
       hostSocketId,
@@ -449,6 +462,8 @@ io.on('connection', (socket) => {
       });
 
       broadcastRoomState(room);
+
+      socket.emit('roomSettings', room.settings);
     }
   );
 
@@ -501,7 +516,7 @@ io.on('connection', (socket) => {
 
       if (
         room.getConnectedPlayers().length >=
-        CONFIG.MAX_PLAYERS
+        room.settings.maxPlayers
       ) {
 
         return callback({
@@ -556,6 +571,8 @@ io.on('connection', (socket) => {
       );
 
       broadcastRoomState(room);
+
+      socket.emit('roomSettings', room.settings);
 
       if (room.state === 'playing') {
         sendGameStateToPlayer(
@@ -626,12 +643,122 @@ io.on('connection', (socket) => {
   );
 
   // ==========================================================
+  // ROOM SETTINGS (host only, lobby only)
+  // ==========================================================
+
+  socket.on(
+    'updateRoomSettings',
+    (settings, callback) => {
+
+      const reply =
+        typeof callback === 'function'
+          ? callback
+          : () => {};
+
+      if (!currentRoom) {
+        return reply({
+          success: false,
+          error: 'Not in a room.'
+        });
+      }
+
+      if (socket.id !== currentRoom.hostId) {
+        return reply({
+          success: false,
+          error: 'Only the host can change settings.'
+        });
+      }
+
+      if (
+        currentRoom.state !== 'lobby' &&
+        currentRoom.state !== 'gameOver'
+      ) {
+        return reply({
+          success: false,
+          error: 'Settings can only be changed in the lobby.'
+        });
+      }
+
+      if (!settings || typeof settings !== 'object') {
+        return reply({
+          success: false,
+          error: 'Invalid settings.'
+        });
+      }
+
+      const maxPlayers = Number(settings.maxPlayers);
+      const rounds = Number(settings.rounds);
+      const roundTime = Number(settings.roundTime);
+
+      const connectedCount =
+        currentRoom.getConnectedPlayers().length;
+
+      if (
+        !Number.isInteger(maxPlayers) ||
+        maxPlayers < CONFIG.MIN_PLAYERS ||
+        maxPlayers > CONFIG.MAX_PLAYERS
+      ) {
+        return reply({
+          success: false,
+          error: 'Invalid maximum players.'
+        });
+      }
+
+      if (maxPlayers < connectedCount) {
+        return reply({
+          success: false,
+          error:
+            `There are already ${connectedCount} players in the room.`
+        });
+      }
+
+      if (
+        !Number.isInteger(rounds) ||
+        rounds < CONFIG.MIN_ROUNDS ||
+        rounds > CONFIG.MAX_ROUNDS
+      ) {
+        return reply({
+          success: false,
+          error: 'Invalid number of rounds.'
+        });
+      }
+
+      if (
+        !CONFIG.ALLOWED_ROUND_TIMES.includes(roundTime)
+      ) {
+        return reply({
+          success: false,
+          error: 'Invalid drawing time.'
+        });
+      }
+
+      currentRoom.settings = {
+        maxPlayers,
+        rounds,
+        roundTime
+      };
+
+      io
+        .to(currentRoom.code)
+        .emit(
+          'roomSettings',
+          currentRoom.settings
+        );
+
+      reply({
+        success: true,
+        settings: currentRoom.settings
+      });
+    }
+  );
+
+  // ==========================================================
   // WORD CHOICE
   // ==========================================================
 
   socket.on(
     'chooseWord',
-    ({ word }) => {
+    ({ word }, callback) => {
 
       if (!currentRoom) {
         return;
@@ -672,6 +799,10 @@ io.on('connection', (socket) => {
       startDrawingPhase(
         currentRoom
       );
+
+      if (typeof callback === 'function') {
+        callback({ success: true });
+      }
     }
   );
 
@@ -901,7 +1032,7 @@ io.on('connection', (socket) => {
           const score =
             calculateScore(
               currentRoom.timeRemaining,
-              CONFIG.ROUND_TIME
+              currentRoom.settings.roundTime
             );
 
           player.score += score;
@@ -1120,12 +1251,11 @@ io.on('connection', (socket) => {
   // DISCONNECT
   // ==========================================================
 
-  socket.on(
-    'disconnect',
-    () => {
+  // Shared by the Leave button ('leaveRoom') and by 'disconnect'.
+  function leaveCurrentRoom() {
 
       if (!currentRoom) {
-        return;
+        return false;
       }
 
       const player =
@@ -1137,6 +1267,8 @@ io.on('connection', (socket) => {
         player
           ? player.name
           : 'A player';
+
+      socket.leave(currentRoom.code);
 
       const roomDeleted =
         currentRoom.removePlayer(
@@ -1200,6 +1332,29 @@ io.on('connection', (socket) => {
       }
 
       currentRoom = null;
+
+      return true;
+  }
+
+  socket.on(
+    'leaveRoom',
+    (...args) => {
+
+      const callback =
+        args.find(a => typeof a === 'function');
+
+      leaveCurrentRoom();
+
+      if (callback) {
+        callback({ success: true });
+      }
+    }
+  );
+
+  socket.on(
+    'disconnect',
+    () => {
+      leaveCurrentRoom();
     }
   );
 });
@@ -1226,7 +1381,7 @@ function startGame(room) {
       .map(p => p.id);
 
   room.totalTurns =
-    CONFIG.ROUNDS_PER_GAME *
+    room.settings.rounds *
     room.playerOrder.length;
 
   broadcastChat(
@@ -1336,22 +1491,6 @@ function nextTurn(room) {
     'system'
   );
 
-  const drawerSocket =
-    io.sockets.sockets.get(
-      drawerId
-    );
-
-  if (drawerSocket) {
-
-    drawerSocket.emit(
-      'wordChoices',
-      {
-        words:
-          room.wordChoices
-      }
-    );
-  }
-
   broadcastRoomState(
     room
   );
@@ -1368,7 +1507,7 @@ function nextTurn(room) {
         round: room.roundNumber,
 
         totalRounds:
-          CONFIG.ROUNDS_PER_GAME,
+          room.settings.rounds,
 
         turnIndex:
           room.turnIndex,
@@ -1382,6 +1521,25 @@ function nextTurn(room) {
     CONFIG.CHOOSE_TIME;
 
   broadcastTimer(room);
+
+  // Send the word choices only AFTER 'newTurn', so the drawer's
+  // client already knows it is the drawer and has switched to the
+  // game page when the 3 words arrive.
+  const drawerSocket =
+    io.sockets.sockets.get(
+      drawerId
+    );
+
+  if (drawerSocket) {
+
+    drawerSocket.emit(
+      'wordChoices',
+      {
+        words:
+          room.wordChoices
+      }
+    );
+  }
 
   room.timer =
     setInterval(() => {
@@ -1423,7 +1581,7 @@ function startDrawingPhase(room) {
   room.state = 'playing';
 
   room.timeRemaining =
-    CONFIG.ROUND_TIME;
+    room.settings.roundTime;
 
   const hint =
     makeHint(
@@ -1489,21 +1647,21 @@ function startDrawingPhase(room) {
       if (
         room.timeRemaining ===
         Math.floor(
-          CONFIG.ROUND_TIME * 0.5
+          room.settings.roundTime * 0.5
         ) ||
         room.timeRemaining ===
         Math.floor(
-          CONFIG.ROUND_TIME * 0.25
+          room.settings.roundTime * 0.25
         )
       ) {
 
         const elapsed =
-          CONFIG.ROUND_TIME -
+          room.settings.roundTime -
           room.timeRemaining;
 
         const fraction =
           elapsed /
-          CONFIG.ROUND_TIME;
+          room.settings.roundTime;
 
         const partialHint =
           makePartialHint(
@@ -1675,7 +1833,7 @@ function broadcastRoomState(room) {
           room.roundNumber,
 
         totalRounds:
-          CONFIG.ROUNDS_PER_GAME,
+          room.settings.rounds,
 
         turnIndex:
           room.turnIndex,
@@ -1840,7 +1998,7 @@ function sendGameStateToPlayer(
           room.roundNumber,
 
         totalRounds:
-          CONFIG.ROUNDS_PER_GAME,
+          room.settings.rounds,
 
         turnIndex:
           room.turnIndex,

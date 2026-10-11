@@ -361,22 +361,33 @@
 
   function leaveRoom() {
 
+    // Tell the server, but don't wait for its reply to update the UI,
+    // so the Leave button always works (even on a flaky connection).
     socket.emit("leaveRoom", {}, response => {
-
-      myId = null;
-      roomCode = "";
-      isHost = false;
-      isDrawer = false;
-
-      $("chatMessages").innerHTML = "";
-      $("playerNameInput").focus();
-
-      page("landing");
-
       if (!response?.success) {
         console.warn(response?.error);
       }
     });
+
+    myId = null;
+    roomCode = "";
+    isHost = false;
+    isDrawer = false;
+    drawing = false;
+
+    $("chatMessages").innerHTML = "";
+    $("gamePlayerList").innerHTML = "";
+    $("lobbyPlayerList").innerHTML = "";
+    $("wordChoiceOverlay").classList.add("hidden");
+    $("turnResultOverlay").classList.add("hidden");
+    $("drawingTools").classList.add("hidden");
+    $("settingsPanel").classList.add("hidden");
+    $("playersCard").classList.remove("hidden");
+    $("settingsMessage").textContent = "";
+
+    page("landing");
+
+    $("playerNameInput").focus();
   }
 
 
@@ -392,6 +403,8 @@
       `${data.round} / ${data.totalRounds}`;
 
     $("wordHint").textContent = "";
+
+    $("wordChoiceOverlay").classList.add("hidden");
 
     hideResult();
 
@@ -413,7 +426,11 @@
 
   socket.on("wordChoices", data => {
 
-    if (!isDrawer) return;
+    // The server only sends this event to the current drawer, so we
+    // don't depend on 'newTurn' having arrived first.
+    isDrawer = true;
+
+    page("game");
 
     const words = Array.isArray(data.words)
       ? data.words
@@ -1097,15 +1114,6 @@
   socket.on("returnToLobby", () => {
     showLobby();
   });
-
-
-  function showLobby() {
-
-    $("lobbyRoomCode").textContent =
-      roomCode;
-
-    page("lobby");
-  }
 
 
   $("playerNameInput").focus();
