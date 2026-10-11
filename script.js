@@ -702,7 +702,7 @@
       );
     }
 
-    ctx.fillStyle = "white";
+    ctx.fillStyle = "#e6e8eb";
 
     if (!oldImage) {
       ctx.fillRect(
@@ -795,7 +795,7 @@
       1, 0, 0, 1, 0, 0
     );
 
-    ctx.fillStyle = "white";
+    ctx.fillStyle = "#e6e8eb";
 
     ctx.fillRect(
       0,

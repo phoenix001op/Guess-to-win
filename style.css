@@ -5,17 +5,18 @@
 }
 
 :root {
-  --bg: #f3f4f6;
-  --panel: #ffffff;
-  --panel2: #f8f9fa;
-  --border: #d8dbe0;
-  --text: #1f2430;
-  --muted: #6b7280;
-  --primary: #34506b;
-  --primary-hover: #2a4259;
-  --danger: #a8403a;
-  --green: #3f7a58;
-  --warn: #8a6a1c;
+  --bg: #1f2328;
+  --panel: #282d33;
+  --panel2: #30363d;
+  --hover: #383f47;
+  --border: #3b424b;
+  --text: #dfe3e8;
+  --muted: #98a1ad;
+  --primary: #4f6f8f;
+  --primary-hover: #5b7b9b;
+  --danger: #d4807a;
+  --green: #84b392;
+  --warn: #cfae62;
 }
 
 body {
@@ -110,7 +111,7 @@ input,
 select {
   width: 100%;
   border: 1px solid var(--border);
-  background: #ffffff;
+  background: var(--bg);
   color: var(--text);
   border-radius: 8px;
   padding: 11px 12px;
@@ -151,13 +152,13 @@ input[type="range"] {
 }
 
 .btn.secondary {
-  background: #ffffff;
+  background: var(--panel2);
   color: var(--text);
   border-color: var(--border);
 }
 
 .btn.secondary:hover:not(:disabled) {
-  background: var(--panel2);
+  background: var(--hover);
 }
 
 .btn.big,
@@ -234,7 +235,7 @@ input[type="range"] {
 
 .small-btn {
   border: 1px solid var(--border);
-  background: #ffffff;
+  background: var(--panel2);
   color: var(--text);
   border-radius: 8px;
   padding: 8px 12px;
@@ -242,7 +243,7 @@ input[type="range"] {
 }
 
 .small-btn:hover {
-  background: var(--panel2);
+  background: var(--hover);
 }
 
 .small-btn.danger {
@@ -460,7 +461,7 @@ input[type="range"] {
   position: relative;
   flex: 1;
   min-height: 300px;
-  background: white;
+  background: #e6e8eb;
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -497,7 +498,7 @@ input[type="range"] {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  border: 1px solid #b9bec7;
+  border: 1px solid #6b737e;
   cursor: pointer;
 }
 
@@ -508,14 +509,14 @@ input[type="range"] {
 
 .tool-btn {
   border: 1px solid var(--border);
-  background: #ffffff;
+  background: var(--panel2);
   color: var(--text);
   border-radius: 8px;
   padding: 6px 10px;
 }
 
 .tool-btn:hover {
-  background: var(--panel2);
+  background: var(--hover);
 }
 
 .tool-btn.active {
@@ -597,7 +598,7 @@ input[type="range"] {
 .game-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(31, 36, 48, .45);
+  background: rgba(0, 0, 0, .55);
   display: grid;
   place-items: center;
   z-index: 5;
@@ -635,7 +636,7 @@ input[type="range"] {
 
 .word-choice {
   border: 1px solid var(--border);
-  background: #ffffff;
+  background: var(--panel2);
   color: var(--text);
   padding: 13px;
   border-radius: 8px;
